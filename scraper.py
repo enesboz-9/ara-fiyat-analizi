@@ -1,43 +1,58 @@
-if not df.empty:
-    st.success(f"{len(df)} araç başarıyla ayıklandı!")
+import pandas as pd
+from bs4 import BeautifulSoup
 
-    # --- AYNI MODEL ANALİZİ ---
-    model_list = df['baslik'].unique()
-    secilen_model = st.selectbox("Analiz edilecek spesifik modeli seçin:", model_list)
-    
-    analiz_df = df[df['baslik'] == secilen_model].copy()
-    
-    if not analiz_df.empty:
-        # Analiz Metrikleri
-        avg_price = analiz_df['fiyat'].mean()
-        min_price = analiz_df['fiyat'].min()
+def parse_html_data(html_content):
+    if not html_content:
+        return pd.DataFrame()
         
-        c1, c2, c3 = st.columns(3)
-        c1.metric("Ortalama Fiyat", f"{avg_price:,.0f} TL")
-        c2.metric("En Düşük", f"{min_price:,.0f} TL")
-        c3.metric("Araç Sayısı", len(analiz_df))
+    soup = BeautifulSoup(html_content, 'html.parser')
+    cars = []
 
-        # Hasar Analizi (Basit Anahtar Kelime Tarama)
-        def hasar_durumu(text):
-            if "hasar kaydı yok" in text or "hatasız" in text: return "Hatasız"
-            if "hasar kayıtlı" in text or "tramerli" in text: return "Hasarlı/Tramerli"
-            return "Belirtilmemiş"
+    # Arabam.com ilan satırlarını bul (Farklı görünümler için 3 farklı seçici)
+    items = soup.select("tr.listing-new-item") or soup.select(".unf-listing-card") or soup.select(".listing-list-item")
 
-        analiz_df['Hasar Durumu'] = analiz_df['bilgi'].apply(hasar_durumu)
-        
-        # Sınıflandırma
-        def siniflandir(row):
-            if row['fiyat'] < avg_price * 0.9: return "🔥 Fırsat (Ucuz)"
-            if row['fiyat'] > avg_price * 1.1: return "🚩 Pahalı"
-            return "✅ Normal"
+    for item in items:
+        try:
+            # 1. Başlık ve Model
+            title_elem = item.select_one(".model-name, .listing-model-name, h3")
+            # 2. Fiyat
+            price_elem = item.select_one(".price, .listing-price, .item-price")
+            # 3. Kilometre (KM)
+            km_elem = item.select_one(".listing-km, .km-value, td:nth-child(4)") 
+            # 4. Yıl
+            year_elem = item.select_one(".listing-year, .year-value, td:nth-child(3)")
 
-        analiz_df['Analiz'] = analiz_df.apply(siniflandir, axis=1)
+            if title_elem and price_elem:
+                title = title_elem.get_text().strip()
+                
+                # Fiyat temizleme
+                price_text = ''.join(filter(str.isdigit, price_elem.get_text()))
+                price = int(price_text) if price_text else 0
+                
+                # KM temizleme
+                km_text = ''.join(filter(str.isdigit, km_elem.get_text())) if km_elem else "0"
+                km = int(km_text) if km_text else 0
 
-        # Görselleştirme (KM ve Fiyat İlişkisi)
-        import plotly.express as px
-        fig = px.scatter(analiz_df, x="km", y="fiyat", color="Analiz", 
-                         size="fiyat", hover_data=['yil', 'Hasar Durumu'],
-                         title=f"{secilen_model} KM - Fiyat Dağılımı")
-        st.plotly_chart(fig, use_container_width=True)
+                # Yıl temizleme
+                year_text = ''.join(filter(str.isdigit, year_elem.get_text())) if year_elem else "0"
+                year = int(year_text) if year_text else 0
 
-        st.dataframe(analiz_df[['baslik', 'yil', 'km', 'fiyat', 'Hasar Durumu', 'Analiz']])
+                # Tüm metni hasar analizi için sakla
+                full_text = item.get_text().lower()
+
+                cars.append({
+                    "baslik": title,
+                    "fiyat": price,
+                    "km": km,
+                    "yil": year,
+                    "ham_metin": full_text
+                })
+        except:
+            continue
+            
+    return pd.DataFrame(cars)
+
+def get_live_data(url):
+    # Bu fonksiyonun içi önceki gibi kalabilir (Playwright kısmı)
+    # Şimdilik hızlı analiz için boş dönebilir veya pas geçebiliriz.
+    return pd.DataFrame()
