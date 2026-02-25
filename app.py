@@ -1,24 +1,22 @@
 # app.py
 import streamlit as st
-from scraper import get_live_data # scraper.py dosyasındaki fonksiyonu çağırıyoruz
+from bs4 import BeautifulSoup
+import pandas as pd
 
-st.set_page_config(page_title="Canlı Araç Analiz", layout="wide")
+st.title("🚗 Akıllı Araç Analizörü")
 
-st.title("🚗 Anlık Araç Fiyat Analizi")
+tab1, tab2 = st.tabs(["Link ile Analiz (Beta)", "Hızlı Analiz (Kopyala-Yapıştır)"])
 
-# Kullanıcıdan URL al
-url = st.text_input("Analiz edilecek ilan listesi linkini girin:")
-
-if st.button("Piyasayı Güncelle ve Analiz Et"):
-    if url:
-        with st.spinner("Veriler canlı olarak çekiliyor..."):
-            # scraper.py'deki fonksiyonu burada kullanıyoruz
-            df = get_live_data(url)
-            
-            if not df.empty:
-                st.write("### Güncel Veriler", df)
-                # Buraya analiz ve grafik kodlarını ekleyebilirsin
-            else:
-                st.warning("Veri bulunamadı. Lütfen linki kontrol edin.")
-    else:
-        st.error("Lütfen geçerli bir URL girin.")
+with tab2:
+    st.info("Sitenin bot engeline takılmamak için: İlan listesindeyken 'Sağ Tık -> Sayfa Kaynağını Görüntüle' yapın, hepsini seçip buraya yapıştırın.")
+    html_data = st.text_area("Sayfa Kaynağını (HTML) Buraya Yapıştırın", height=300)
+    
+    if st.button("Hemen Analiz Et"):
+        soup = BeautifulSoup(html_data, 'html.parser')
+        # BeautifulSoup ile verileri ayıkla (Hız limiti yok, ban riski yok!)
+        # Örnek:
+        names = [item.get_text() for item in soup.select(".model-name")]
+        prices = [item.get_text() for item in soup.select(".price")]
+        
+        df = pd.DataFrame({"baslik": names, "fiyat": prices})
+        st.write(df)
