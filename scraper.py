@@ -1,3 +1,17 @@
+import os
+import subprocess
+
+# Sunucuda tarayıcı eksikse yükle
+try:
+    import playwright
+except ImportError:
+    subprocess.run(["pip", "install", "playwright"])
+
+# Tarayıcı binary dosyalarını sunucuya kur (Kritik nokta)
+os.system("playwright install chromium")
+
+from playwright.sync_api import sync_playwright
+# ... geri kalan kodların ...
 # scraper.py
 from playwright.sync_api import sync_playwright
 import pandas as pd
@@ -29,3 +43,4 @@ def get_live_data(url):
                 
         browser.close()
         return pd.DataFrame(cars)
+
